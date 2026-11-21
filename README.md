@@ -16,6 +16,7 @@
 ## 固件特性
 
 - 中文 LuCI 后台（`luci` + `zh_Hans`）
+- **Argon 主题**（`luci-theme-argon`，feed 内置 3.1.4）：明暗双模式 + 玻璃拟态，自带主题配置页，首启自动设为默认
 - **HomeProxy 代理平台**：sing-box 内核，依赖 firewall4 / kmod-tun / nft-tproxy / ucode-mod-digest
 - 高通 NSS 硬件转发加速（ECM / 网桥管理 / VLAN）
 - 轻量代理依赖：TUN、nftables tproxy/socket/bridge/nat、ipset、ip-full、bash、curl、ca-bundle 等

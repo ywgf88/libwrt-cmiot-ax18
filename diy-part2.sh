@@ -13,8 +13,7 @@
 # 默认管理 IP -> 192.168.9.1
 sed -i 's/192\.168\.[0-9]*\.[0-9]*/192.168.9.1/g' package/base-files/files/bin/config_generate
 
-# Modify default theme
-#sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
+# 默认主题：argon 包自带 /etc/uci-defaults 脚本，首启自动把默认主题切到 /luci-static/argon，无需额外 sed
 
 # Modify hostname
 #sed -i 's/OpenWrt/P3TERX-Router/g' package/base-files/files/bin/config_generate
