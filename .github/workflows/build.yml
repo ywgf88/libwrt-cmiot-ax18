@@ -9,6 +9,10 @@ on:
   repository_dispatch:
   workflow_dispatch:
 
+# 允许工作流向仓库创建/上传 Release（默认 GITHUB_TOKEN 为只读，需显式声明）
+permissions:
+  contents: write
+
 env:
   REPO_URL: https://github.com/LiBwrt/LibWrt
   REPO_BRANCH: 25.12-nss
