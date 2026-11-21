@@ -10,16 +10,18 @@
 | 源码分支 | `25.12-nss` |
 | 平台 / 内核 | qualcommax / ipq60xx，内核 6.12，NSS 满血加速 |
 | 目标机型 | `cmiot_ax18`（CMIOT AX18，IPQ6000） |
-| 默认管理地址 | `192.168.1.1`（LibWrt 默认，密码为空） |
-| 参考配置 | https://github.com/hili68888/libwrt-cmiot_ax18_6.12- |
+| 默认管理地址 | `192.168.9.1`（密码为空） |
+| 参考配置 | https://github.com/hili68888/libwrt-cmiot_ax18_6.12- ；内存调优参考 https://github.com/ywgf88/OpenWRT-CI |
 
 ## 固件特性
 
 - 中文 LuCI 后台（`luci` + `zh_Hans`）
+- **HomeProxy 代理平台**：sing-box 内核，依赖 firewall4 / kmod-tun / nft-tproxy / ucode-mod-digest
 - 高通 NSS 硬件转发加速（ECM / 网桥管理 / VLAN）
 - 轻量代理依赖：TUN、nftables tproxy/socket/bridge/nat、ipset、ip-full、bash、curl、ca-bundle 等
-- dnsmasq-full（DNS 分流）
+- dnsmasq-full（DNS 分流，缓存提到 8192）
 - ttyd 免登录、UPnP、DDNS、文件助手、LED 控制
+- **1G 内存调优**（移植自 OpenWRT-CI，首启执行一次）：放大内核网络缓冲（rmem/wmem 16MiB、tcp 缓冲、conntrack 65536）、日志环缓冲 256KB、HomeProxy 看板资源重定向到 `/tmp` 内存盘以节省 overlay
 - **纯净有线主/旁路由**：已剔除 ath11k 无线驱动、wpad 与板级无线固件包；无 USB，已关闭 USB 存储组件
 
 ## 目录说明
@@ -29,7 +31,9 @@
 | `.github/workflows/build.yml` | GitHub Actions 编译工作流 |
 | `.config` | 机型锁定与软件包配置 |
 | `diy-part1.sh` | 更新 feeds 前执行（追加第三方插件源） |
-| `diy-part2.sh` | 安装 feeds 后执行（剔无线板级包、dnsmasq 替换等） |
+| `diy-part2.sh` | 安装 feeds 后执行（改默认 IP、剔无线板级包、dnsmasq 替换等） |
+| `files/etc/init.d/homeproxy-ram` | 把 HomeProxy 看板软链到 `/tmp` 内存盘 |
+| `files/etc/uci-defaults/97-ram-tune` | 首启内存/网络缓冲调优（sysctl + DNS 缓存 + 日志缓冲） |
 
 ## 如何编译
 
