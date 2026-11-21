@@ -28,6 +28,7 @@
 - 轻量代理依赖：TUN、nftables tproxy/socket/bridge/nat、ipset、ip-full、bash、curl、ca-bundle、unzip 等
 - dnsmasq-full（DNS 分流，缓存提到 8192）
 - 运维工具：ttyd 免登录、UPnP、DDNS、文件助手（含中文包）、LED 触发控制
+- **访客 WiFi 插件**（`luci-app-guest-wifi`）：旧版 Lua 应用，经 luci-compat 兼容层运行；本机无线已剥离，菜单仅在存在无线配置时显示
 - **1G 内存调优**（移植自 OpenWRT-CI，首启执行一次，写入 `/etc` 长期保留）：
   - 内核网络缓冲放大：rmem/wmem 16MiB、tcp_rmem/tcp_wmem、conntrack_max 65536
   - DNS 缓存 1500 → 8192；系统日志环缓冲 64KB → 256KB
