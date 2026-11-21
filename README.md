@@ -54,7 +54,7 @@
 | `.github/workflows/build.yml` | GitHub Actions 编译工作流（含 `contents: write` 权限以自动发布 Release） |
 | `.config` | 机型锁定与软件包配置 |
 | `diy-part1.sh` | 更新 feeds 前执行：追加 helloworld、kenzok8 第三方插件源 |
-| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、剔无线板级包、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权 |
+| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、剔无线板级包、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权、修正 design 主题版本号 |
 | `files/etc/init.d/homeproxy-ram` | 开机把 HomeProxy 看板软链到 `/tmp` 内存盘 |
 | `files/etc/uci-defaults/97-ram-tune` | 首启内存 / 网络缓冲调优（sysctl + DNS 缓存 + 日志缓冲 + 启用看板重定向） |
 | `files/etc/uci-defaults/98-default-theme-argon` | 兜底脚本：所有主题首启脚本跑完后，强制默认主题回到 Argon |
@@ -75,3 +75,4 @@
   - 并注释掉 `diy-part2.sh` 中擦除 `ipq-wifi-cmiot_ax18` 的那条 `find ... sed` 命令。
 - **更换主题**：固件内已编入 7 套主题，后台 **系统 → 语言和外观** 直接切换；Argon 的外观、背景、明暗模式在 **系统 → Argon 配置** 里调整。增删主题在 `.config` 中改 `CONFIG_PACKAGE_luci-theme-*` 行即可。
 - 个别插件若在 feeds 中不存在，`make defconfig` 会自动丢弃对应选项，不影响编译。
+- **design 主题版本号补丁**：上游 `luci-theme-design` 的 `PKG_VERSION=5.8.0-20240106` 内嵌连字符，25.12 的 apk 打包器会判定版本非法并中断打包；`diy-part2.sh` 在编译前把它改为 `5.8.0.20240106`（版本段只用 `.`，`-` 仅作 release 分隔）。
