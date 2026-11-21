@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# 强制默认主题为 Argon。
+# 各第三方主题的首启脚本（30_luci-theme-*）在全新安装时可能自行抢占默认外观，
+# 本脚本编号 98，排在所有主题脚本之后执行，把默认主题拉回 Argon。
+# 用户仍可在 系统 → 语言和外观 里手动切换其他主题。
+
+uci -q set luci.themes.Argon=/luci-static/argon
+uci -q set luci.main.mediaurlbase=/luci-static/argon
+uci -q commit luci
+
+rm -f /tmp/luci-indexcache /tmp/luci-modulecache 2>/dev/null
+exit 0

@@ -19,7 +19,10 @@
 ## 固件特性
 
 - 中文 LuCI 后台（`luci` + `zh_Hans`）
-- **Argon 主题**（`luci-theme-argon` 3.1.4，immortalwrt luci feed 内置）：明 / 暗 / 纯黑模式 + 玻璃拟态，自带「Argon 配置」页，首启自动设为默认主题
+- **Argon 主题**（`luci-theme-argon` 3.1.4，immortalwrt luci feed 内置）：明 / 暗 / 纯黑模式 + 玻璃拟态，自带「Argon 配置」页，**默认主题**
+- **内置 6 个第三方主题**（kenzok8 feed，后台 系统 → 语言和外观 可切换）：Carbon、Glass、Design、Liquid、Vantage、iFIT；默认外观由 `98-default-theme-argon` 兜底锁定为 Argon，不会被其他主题抢占
+  - 现代 ucode 结构：Carbon / Glass / Liquid / Vantage；
+  - 旧版 Lua 模板：Design / iFIT，在新版 ucode LuCI 下仅静态样式可用，界面可能不完整
 - **HomeProxy 代理平台**：sing-box 1.12.25 内核，依赖 firewall4 / kmod-tun / nft-tproxy / ucode-mod-digest
 - 高通 NSS 硬件转发加速（ECM / 网桥管理 / VLAN）
 - 轻量代理依赖：TUN、nftables tproxy/socket/bridge/nat、ipset、ip-full、bash、curl、ca-bundle、unzip 等
@@ -53,6 +56,7 @@
 | `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、剔无线板级包、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权 |
 | `files/etc/init.d/homeproxy-ram` | 开机把 HomeProxy 看板软链到 `/tmp` 内存盘 |
 | `files/etc/uci-defaults/97-ram-tune` | 首启内存 / 网络缓冲调优（sysctl + DNS 缓存 + 日志缓冲 + 启用看板重定向） |
+| `files/etc/uci-defaults/98-default-theme-argon` | 兜底脚本：所有主题首启脚本跑完后，强制默认主题回到 Argon |
 
 ## 如何编译
 
@@ -68,5 +72,5 @@
 - **恢复无线**：本版按纯有线取向编译。若需要保留无线，编辑 `.config`：
   - 把 `CONFIG_PACKAGE_kmod-ath11k=n`、`CONFIG_PACKAGE_kmod-ath11k-ahb=n`、`CONFIG_PACKAGE_wpad-openssl=n` 三行改为 `=y`（或直接删除）；
   - 并注释掉 `diy-part2.sh` 中擦除 `ipq-wifi-cmiot_ax18` 的那条 `find ... sed` 命令。
-- **更换主题**：在 `.config` 中把 `CONFIG_PACKAGE_luci-theme-argon=y` 换成其他主题包名即可；Argon 的外观、背景、明暗模式在后台 **系统 → Argon 配置** 里调整。
+- **更换主题**：固件内已编入 7 套主题，后台 **系统 → 语言和外观** 直接切换；Argon 的外观、背景、明暗模式在 **系统 → Argon 配置** 里调整。增删主题在 `.config` 中改 `CONFIG_PACKAGE_luci-theme-*` 行即可。
 - 个别插件若在 feeds 中不存在，`make defconfig` 会自动丢弃对应选项，不影响编译。

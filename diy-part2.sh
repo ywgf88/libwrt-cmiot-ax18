@@ -13,13 +13,13 @@
 # 默认管理 IP -> 192.168.9.1
 sed -i 's/192\.168\.[0-9]*\.[0-9]*/192.168.9.1/g' package/base-files/files/bin/config_generate
 
-# 默认主题：argon 包自带 /etc/uci-defaults 脚本，首启自动把默认主题切到 /luci-static/argon，无需额外 sed
+# 默认主题：argon 包自带首启脚本；98-default-theme-argon 兜底，防止第三方主题抢占默认外观
 
 # Modify hostname
 #sed -i 's/OpenWrt/P3TERX-Router/g' package/base-files/files/bin/config_generate
 
-# 1G 内存调优脚本可执行位（files/ 已挂载进 rootfs）
-chmod +x ./files/etc/init.d/homeproxy-ram ./files/etc/uci-defaults/97-ram-tune 2>/dev/null || true
+# 随 files/ 挂载进 rootfs 的脚本可执行位
+chmod +x ./files/etc/init.d/homeproxy-ram ./files/etc/uci-defaults/97-ram-tune ./files/etc/uci-defaults/98-default-theme-argon 2>/dev/null || true
 
 # TTYD 免登录
 sed -i 's|/bin/login|/bin/login -f root|g' feeds/packages/utils/ttyd/files/ttyd.config
