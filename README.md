@@ -12,7 +12,7 @@
 | 平台 / 内核 | qualcommax / ipq60xx，内核 6.12，NSS 满血加速 |
 | 目标机型 | `cmiot_ax18`（CMIOT AX18，IPQ6000） |
 | 默认管理地址 | `192.168.9.1`（root 密码为空，首登请先设密码） |
-| 最新固件 | [Release 2026.11.21-2202](https://github.com/ywgf88/libwrt-cmiot-ax18/releases/tag/2026.11.21-2202) |
+| 最新固件 | [Release 2026.11.22-0515](https://github.com/ywgf88/libwrt-cmiot-ax18/releases/tag/2026.11.22-0515) |
 | 编译环境 | GitHub Actions `ubuntu-22.04` |
 | 参考配置 | https://github.com/hili68888/libwrt-cmiot_ax18_6.12- ；内存调优参考 https://github.com/ywgf88/OpenWRT-CI |
 
@@ -20,9 +20,9 @@
 
 - 中文 LuCI 后台（`luci` + `zh_Hans`）
 - **Argon 主题**（`luci-theme-argon` 3.1.4，immortalwrt luci feed 内置）：明 / 暗 / 纯黑模式 + 玻璃拟态，自带「Argon 配置」页，**默认主题**
-- **内置 6 个第三方主题**（kenzok8 feed，后台 系统 → 语言和外观 可切换）：Carbon、Glass、Design、Liquid、Vantage、iFIT；默认外观由 `98-default-theme-argon` 兜底锁定为 Argon，不会被其他主题抢占
-  - 现代 ucode 结构：Carbon / Glass / Liquid / Vantage；
-  - 旧版 Lua 模板：Design / iFIT，在新版 ucode LuCI 下仅静态样式可用，界面可能不完整
+- **内置 4 个第三方主题**（kenzok8 feed，后台 系统 → 语言和外观 可切换）：Carbon、Glass、Liquid、Vantage；默认外观由 `98-default-theme-argon` 兜底锁定为 Argon，不会被其他主题抢占
+  - 均为现代 ucode 模板结构；
+  - 已剔除 Design / iFIT：二者为旧版 Lua 模板，在 25.12 ucode 调度器下调用已不存在的 `_entries` 状态，选中即导致 LuCI 后端崩溃
 - **HomeProxy 代理平台**：sing-box 1.12.25 内核，依赖 firewall4 / kmod-tun / nft-tproxy / ucode-mod-digest
 - 高通 NSS 硬件转发加速（ECM / 网桥管理 / VLAN）
 - 轻量代理依赖：TUN、nftables tproxy/socket/bridge/nat、ipset、ip-full、bash、curl、ca-bundle、unzip 等
@@ -54,7 +54,7 @@
 | `.github/workflows/build.yml` | GitHub Actions 编译工作流（含 `contents: write` 权限以自动发布 Release） |
 | `.config` | 机型锁定与软件包配置 |
 | `diy-part1.sh` | 更新 feeds 前执行：追加 helloworld、kenzok8 第三方插件源 |
-| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、剔无线板级包、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权、修正 design 主题版本号 |
+| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、剔无线板级包、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权 |
 | `files/etc/init.d/homeproxy-ram` | 开机把 HomeProxy 看板软链到 `/tmp` 内存盘 |
 | `files/etc/uci-defaults/97-ram-tune` | 首启内存 / 网络缓冲调优（sysctl + DNS 缓存 + 日志缓冲 + 启用看板重定向） |
 | `files/etc/uci-defaults/98-default-theme-argon` | 兜底脚本：所有主题首启脚本跑完后，强制默认主题回到 Argon |
@@ -73,6 +73,6 @@
 - **恢复无线**：本版按纯有线取向编译。若需要保留无线，编辑 `.config`：
   - 把 `CONFIG_PACKAGE_kmod-ath11k=n`、`CONFIG_PACKAGE_kmod-ath11k-ahb=n`、`CONFIG_PACKAGE_wpad-openssl=n` 三行改为 `=y`（或直接删除）；
   - 并注释掉 `diy-part2.sh` 中擦除 `ipq-wifi-cmiot_ax18` 的那条 `find ... sed` 命令。
-- **更换主题**：固件内已编入 7 套主题，后台 **系统 → 语言和外观** 直接切换；Argon 的外观、背景、明暗模式在 **系统 → Argon 配置** 里调整。增删主题在 `.config` 中改 `CONFIG_PACKAGE_luci-theme-*` 行即可。
+- **更换主题**：固件内已编入 5 套主题（Argon + Carbon/Glass/Liquid/Vantage），后台 **系统 → 语言和外观** 直接切换；Argon 的外观、背景、明暗模式在 **系统 → Argon 配置** 里调整。增删主题在 `.config` 中改 `CONFIG_PACKAGE_luci-theme-*` 行即可。
 - 个别插件若在 feeds 中不存在，`make defconfig` 会自动丢弃对应选项，不影响编译。
-- **design 主题版本号补丁**：上游 `luci-theme-design` 的 `PKG_VERSION=5.8.0-20240106` 内嵌连字符，25.12 的 apk 打包器会判定版本非法并中断打包；`diy-part2.sh` 在编译前把它改为 `5.8.0.20240106`（版本段只用 `.`，`-` 仅作 release 分隔）。
+- **Design / iFIT 为何不在固件里**：这两套旧版 Lua 主题的头部模板调用 `disp.node()` / `disp.node_childs()` 读取旧调度器的 `_entries` 全局状态，25.12 ucode 调度器不再提供该状态，选中后 LuCI 后端直接崩溃（`attempt to index global '_entries' (a nil value)`），故不编入；如需使用需等上游改成 ucode 模板。

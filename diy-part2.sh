@@ -21,11 +21,6 @@ sed -i 's/192\.168\.[0-9]*\.[0-9]*/192.168.9.1/g' package/base-files/files/bin/c
 # 随 files/ 挂载进 rootfs 的脚本可执行位
 chmod +x ./files/etc/init.d/homeproxy-ram ./files/etc/uci-defaults/97-ram-tune ./files/etc/uci-defaults/98-default-theme-argon 2>/dev/null || true
 
-# 修复 luci-theme-design 版本号：上游 PKG_VERSION=5.8.0-20240106 内嵌连字符，
-# 25.12 的 apk 打包器（apk-tools）判定版本非法、打包中断；把日期分隔符改为 '.'，
-# 最终版本 5.8.0.20240106-r1，符合 apk 版本规范（版本段不含 '-'，'-' 仅用于 release 分隔）。
-sed -i 's/^PKG_VERSION:=5\.8\.0-20240106$/PKG_VERSION:=5.8.0.20240106/' feeds/kenzok/luci-theme-design/Makefile 2>/dev/null || true
-
 # TTYD 免登录
 sed -i 's|/bin/login|/bin/login -f root|g' feeds/packages/utils/ttyd/files/ttyd.config
 
