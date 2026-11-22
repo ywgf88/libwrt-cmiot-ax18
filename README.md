@@ -28,12 +28,12 @@
 - 轻量代理依赖：TUN、nftables tproxy/socket/bridge/nat、ipset、ip-full、bash、curl、ca-bundle、unzip 等
 - dnsmasq-full（DNS 分流，缓存提到 8192）
 - 运维工具：ttyd 免登录、UPnP、DDNS、文件助手（含中文包）、LED 触发控制
-- **访客 WiFi 插件**（`luci-app-guest-wifi`）：旧版 Lua 应用，经 luci-compat 兼容层运行；本机无线已剥离，菜单仅在存在无线配置时显示
+- **访客 WiFi 插件**（`luci-app-guest-wifi`）：旧版 Lua 应用，经 luci-compat 兼容层运行；配合已恢复的 ath11k 无线，可在「网络 → Guest WiFi」配置访客 SSID
 - **1G 内存调优**（移植自 OpenWRT-CI，首启执行一次，写入 `/etc` 长期保留）：
   - 内核网络缓冲放大：rmem/wmem 16MiB、tcp_rmem/tcp_wmem、conntrack_max 65536
   - DNS 缓存 1500 → 8192；系统日志环缓冲 64KB → 256KB
   - HomeProxy 看板资源（约 8MiB）软链到 `/tmp` 内存盘，避免占用 overlay
-- **纯净有线主/旁路由**：已剔除 ath11k 无线驱动、wpad 与板级无线固件包；无 USB，已关闭 USB 存储组件
+- **无线已恢复**：编入 ath11k 驱动栈（IPQ6018 板载双频，AHB）+ `ath11k-firmware-ipq6018` + `ipq-wifi-cmiot_ax18` 板级 BDF + `wpad-openssl`；无 USB，已关闭 USB 存储组件
 
 ## 产物说明
 
@@ -54,7 +54,7 @@
 | `.github/workflows/build.yml` | GitHub Actions 编译工作流（含 `contents: write` 权限以自动发布 Release） |
 | `.config` | 机型锁定与软件包配置 |
 | `diy-part1.sh` | 更新 feeds 前执行：追加 helloworld、kenzok8 第三方插件源 |
-| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、剔无线板级包、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权 |
+| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权（BDF 切除手术已注释） |
 | `files/etc/init.d/homeproxy-ram` | 开机把 HomeProxy 看板软链到 `/tmp` 内存盘 |
 | `files/etc/uci-defaults/97-ram-tune` | 首启内存 / 网络缓冲调优（sysctl + DNS 缓存 + 日志缓冲 + 启用看板重定向） |
 | `files/etc/uci-defaults/98-default-theme-argon` | 兜底脚本：所有主题首启脚本跑完后，强制默认主题回到 Argon |
@@ -70,9 +70,10 @@
 
 ## 备注
 
-- **恢复无线**：本版按纯有线取向编译。若需要保留无线，编辑 `.config`：
-  - 把 `CONFIG_PACKAGE_kmod-ath11k=n`、`CONFIG_PACKAGE_kmod-ath11k-ahb=n`、`CONFIG_PACKAGE_wpad-openssl=n` 三行改为 `=y`（或直接删除）；
-  - 并注释掉 `diy-part2.sh` 中擦除 `ipq-wifi-cmiot_ax18` 的那条 `find ... sed` 命令。
+- **无线驱动栈**（2026-11-22 恢复）：AX18 为 IPQ6018 AX1800，双频均板载 AHB，无需 PCIe/QCN9074。`.config` 已编入 `kmod-ath11k` + `kmod-ath11k-ahb` + `ath11k-firmware-ipq6018` + `ipq-wifi-cmiot_ax18`（板级 BDF）+ `wpad-openssl`；`diy-part2.sh` 中擦除 BDF 的 `find ... sed` 已注释。
+  - 若改回纯有线：把上述五行改回 `=n`，并取消 `diy-part2.sh` 中该 sed 的注释。
+  - **刷机注意**：sysupgrade 时取消勾选「保留配置」，否则旧的空 `wireless` 文件会残留导致无线仍不可用。
+  - 验证：`dmesg | grep ath11k` 应见 IPQ6018 加载成功；`wifi status` 两个 radio 均起来；`cat /etc/config/wireless` 非空。
 - **更换主题**：固件内已编入 5 套主题（Argon + Carbon/Glass/Liquid/Vantage），后台 **系统 → 语言和外观** 直接切换；Argon 的外观、背景、明暗模式在 **系统 → Argon 配置** 里调整。增删主题在 `.config` 中改 `CONFIG_PACKAGE_luci-theme-*` 行即可。
 - 个别插件若在 feeds 中不存在，`make defconfig` 会自动丢弃对应选项，不影响编译。
 - **Design / iFIT 为何不在固件里**：这两套旧版 Lua 主题的头部模板调用 `disp.node()` / `disp.node_childs()` 读取旧调度器的 `_entries` 全局状态，25.12 ucode 调度器不再提供该状态，选中后 LuCI 后端直接崩溃（`attempt to index global '_entries' (a nil value)`），故不编入；如需使用需等上游改成 ucode 模板。
