@@ -12,7 +12,7 @@
 | 平台 / 内核 | qualcommax / ipq60xx，内核 6.12，NSS 满血加速 |
 | 目标机型 | `cmiot_ax18`（CMIOT AX18，IPQ6000） |
 | 默认管理地址 | `192.168.9.1`（root 密码为空，首登请先设密码） |
-| 最新固件 | [Release 2026.11.22-0515](https://github.com/ywgf88/libwrt-cmiot-ax18/releases/tag/2026.11.22-0515) |
+| 最新固件 | [Release 2026.11.22-0931](https://github.com/ywgf88/libwrt-cmiot-ax18/releases/tag/2026.11.22-0931) |
 | 编译环境 | GitHub Actions `ubuntu-22.04` |
 | 参考配置 | https://github.com/hili68888/libwrt-cmiot_ax18_6.12- ；内存调优参考 https://github.com/ywgf88/OpenWRT-CI |
 
