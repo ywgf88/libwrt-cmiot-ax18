@@ -31,3 +31,17 @@ sed -i 's|/bin/login|/bin/login -f root|g' feeds/packages/utils/ttyd/files/ttyd.
 
 # 自动将基础组件中的 dnsmasq 替换为 dnsmasq-full, 从源头规避包冲突
 find include/ target/ -name "Makefile" -o -name "*.mk" | xargs sed -i 's/\bdnsmasq\b/dnsmasq-full/g' 2>/dev/null
+
+# ===== [2026-11-23] 修复 luci-app-guest-wifi 添加按钮无反应 bug =====
+# 上游 wifi.js 的 handleAdd 仅创建空段，被 s.filter(guest_wifi==='1') 隐藏，
+# 且 handleApply 调用了未 require 的 XHR.poll() 抛异常。
+# 用修复版覆盖 feed 源文件（GITHUB_WORKSPACE 为仓库检出根目录，补丁源位于 patches/）。
+GUEST_WIFI_JS="$(find feeds -type f -path '*/luci-app-guest-wifi/htdocs/luci-static/resources/view/guest-wifi/wifi.js' -print -quit 2>/dev/null)"
+PATCH_SRC="${GITHUB_WORKSPACE:-$(pwd)/..}/patches/wifi.js"
+if [ -n "$GUEST_WIFI_JS" ] && [ -f "$PATCH_SRC" ]; then
+    cp -f "$PATCH_SRC" "$GUEST_WIFI_JS"
+    echo "[patch] luci-app-guest-wifi wifi.js replaced -> $GUEST_WIFI_JS"
+else
+    echo "[patch][WARN] guest-wifi wifi.js or patch source not found, skip"
+    echo "[patch][WARN] GUEST_WIFI_JS='$GUEST_WIFI_JS' PATCH_SRC='$PATCH_SRC'"
+fi

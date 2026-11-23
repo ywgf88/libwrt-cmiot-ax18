@@ -5,3 +5,6 @@
 README.md text eol=lf
 files/etc/init.d/* text eol=lf
 files/etc/uci-defaults/* text eol=lf
+
+# 补丁文件在 Linux 编译时保持 LF 换行
+patches/* text eol=lf
