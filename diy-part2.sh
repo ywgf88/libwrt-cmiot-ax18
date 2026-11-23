@@ -32,16 +32,52 @@ sed -i 's|/bin/login|/bin/login -f root|g' feeds/packages/utils/ttyd/files/ttyd.
 # 自动将基础组件中的 dnsmasq 替换为 dnsmasq-full, 从源头规避包冲突
 find include/ target/ -name "Makefile" -o -name "*.mk" | xargs sed -i 's/\bdnsmasq\b/dnsmasq-full/g' 2>/dev/null
 
-# ===== [2026-11-23] 修复 luci-app-guest-wifi 添加按钮无反应 bug =====
-# 上游 wifi.js 的 handleAdd 仅创建空段，被 s.filter(guest_wifi==='1') 隐藏，
-# 且 handleApply 调用了未 require 的 XHR.poll() 抛异常。
-# 用修复版覆盖 feed 源文件（GITHUB_WORKSPACE 为仓库检出根目录，补丁源位于 patches/）。
+# ===== [2026-11-23] 修复 luci-app-guest-wifi 添加按钮无反应 bug (v2 独立配置版) =====
+# v1 根因：访客段存于 wireless + s.filter(guest_wifi==='1')，新建段被 filter 隐藏，
+#          且页面缺可靠 apply 入口 → 点击添加后界面无变化。
+# v2 方案：改用独立 UCI 配置 guest-wifi 存储访客网络（无 filter），新增 init 服务
+#          在配置变更时同步生成 wireless 的 wifi-iface 段。共覆盖 4 个文件：
+#           1) wifi.js                   页面视图（主配置改 guest-wifi，去 filter）
+#           2) luci-app-guest-wifi-acl.json  ACL 增加 guest-wifi 读写权限
+#           3) guest-wifi-init           /etc/init.d/guest-wifi 同步服务
+#           4) 40_luci-guest-wifi        /etc/uci-defaults 建默认配置+启用服务
+# GITHUB_WORKSPACE 为仓库检出根目录，补丁源位于 patches/。
+PATCH_DIR="${GITHUB_WORKSPACE:-$(pwd)/..}/patches"
+
+# 1) 页面视图
 GUEST_WIFI_JS="$(find feeds -type f -path '*/luci-app-guest-wifi/htdocs/luci-static/resources/view/guest-wifi/wifi.js' -print -quit 2>/dev/null)"
-PATCH_SRC="${GITHUB_WORKSPACE:-$(pwd)/..}/patches/wifi.js"
-if [ -n "$GUEST_WIFI_JS" ] && [ -f "$PATCH_SRC" ]; then
-    cp -f "$PATCH_SRC" "$GUEST_WIFI_JS"
-    echo "[patch] luci-app-guest-wifi wifi.js replaced -> $GUEST_WIFI_JS"
+if [ -n "$GUEST_WIFI_JS" ] && [ -f "$PATCH_DIR/wifi.js" ]; then
+    cp -f "$PATCH_DIR/wifi.js" "$GUEST_WIFI_JS"
+    echo "[patch-v2] wifi.js replaced -> $GUEST_WIFI_JS"
 else
-    echo "[patch][WARN] guest-wifi wifi.js or patch source not found, skip"
-    echo "[patch][WARN] GUEST_WIFI_JS='$GUEST_WIFI_JS' PATCH_SRC='$PATCH_SRC'"
+    echo "[patch-v2][WARN] wifi.js not found (JS='$GUEST_WIFI_JS' SRC='$PATCH_DIR/wifi.js')"
+fi
+
+# 2) ACL（允许读写 guest-wifi）
+GUEST_WIFI_ACL="$(find feeds -type f -path '*/luci-app-guest-wifi/root/usr/share/rpcd/acl.d/luci-app-guest-wifi.json' -print -quit 2>/dev/null)"
+if [ -n "$GUEST_WIFI_ACL" ] && [ -f "$PATCH_DIR/luci-app-guest-wifi-acl.json" ]; then
+    cp -f "$PATCH_DIR/luci-app-guest-wifi-acl.json" "$GUEST_WIFI_ACL"
+    echo "[patch-v2] ACL replaced -> $GUEST_WIFI_ACL"
+else
+    echo "[patch-v2][WARN] ACL not found (ACL='$GUEST_WIFI_ACL')"
+fi
+
+# 3) init 同步服务（覆盖 feed 原 init 脚本）
+GUEST_WIFI_INIT="$(find feeds -type f -path '*/luci-app-guest-wifi/root/etc/init.d/guest-wifi' -print -quit 2>/dev/null)"
+if [ -n "$GUEST_WIFI_INIT" ] && [ -f "$PATCH_DIR/guest-wifi-init" ]; then
+    cp -f "$PATCH_DIR/guest-wifi-init" "$GUEST_WIFI_INIT"
+    chmod +x "$GUEST_WIFI_INIT"
+    echo "[patch-v2] init script replaced -> $GUEST_WIFI_INIT"
+else
+    echo "[patch-v2][WARN] init script not found (INIT='$GUEST_WIFI_INIT')"
+fi
+
+# 4) uci-defaults（建默认配置并启用服务）
+GUEST_WIFI_UCIDEF="$(find feeds -type f -path '*/luci-app-guest-wifi/root/etc/uci-defaults/40_luci-guest-wifi' -print -quit 2>/dev/null)"
+if [ -n "$GUEST_WIFI_UCIDEF" ] && [ -f "$PATCH_DIR/40_luci-guest-wifi" ]; then
+    cp -f "$PATCH_DIR/40_luci-guest-wifi" "$GUEST_WIFI_UCIDEF"
+    chmod +x "$GUEST_WIFI_UCIDEF"
+    echo "[patch-v2] uci-defaults replaced -> $GUEST_WIFI_UCIDEF"
+else
+    echo "[patch-v2][WARN] uci-defaults not found (UCIDEF='$GUEST_WIFI_UCIDEF')"
 fi

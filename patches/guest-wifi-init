@@ -1,0 +1,96 @@
+#!/bin/sh /etc/rc.common
+#
+# Guest WiFi 同步服务 (v2 - 独立配置版)
+#
+# 职责：把独立 UCI 配置 /etc/config/guest-wifi 中定义的访客网络，
+#       同步为 /etc/config/wireless 里的 wifi-iface 段，然后 reload wifi。
+#
+# 触发时机：
+#   - 开机 start_service
+#   - guest-wifi 配置变更（procd_add_reload_trigger，页面「保存并应用」后自动触发）
+#   - wireless 变更
+#
+
+START=99
+USE_PROCD=1
+
+GUEST_CONFIG="guest-wifi"
+MARKER="guest_wifi"
+
+# 删除 wireless 中所有由本服务生成的旧访客段（带 guest_wifi 标记）
+cleanup_guest_ifaces() {
+	local sid
+	for sid in $(uci -q show wireless | sed -n "s/^wireless\.\([^.=]*\)\.${MARKER}=.*/\1/p" | sort -u); do
+		uci -q delete "wireless.${sid}"
+	done
+}
+
+# 同步单个访客配置段 -> wifi-iface
+sync_one() {
+	local section="$1"
+	local enabled ssid device encryption key isolate network sid
+
+	enabled=$(uci -q get "${GUEST_CONFIG}.${section}.enabled")
+	[ "$enabled" = "1" ] || return 0
+
+	ssid=$(uci -q get "${GUEST_CONFIG}.${section}.ssid")
+	device=$(uci -q get "${GUEST_CONFIG}.${section}.device")
+	[ -n "$ssid" ] && [ -n "$device" ] || return 0
+
+	encryption=$(uci -q get "${GUEST_CONFIG}.${section}.encryption")
+	key=$(uci -q get "${GUEST_CONFIG}.${section}.key")
+	isolate=$(uci -q get "${GUEST_CONFIG}.${section}.isolate")
+	network=$(uci -q get "${GUEST_CONFIG}.${section}.network")
+
+	sid=$(uci add wireless wifi-iface)
+	[ -n "$sid" ] || return 0
+
+	uci -q set "wireless.${sid}.${MARKER}=1"
+	uci -q set "wireless.${sid}.mode=ap"
+	uci -q set "wireless.${sid}.ssid=${ssid}"
+	uci -q set "wireless.${sid}.device=${device}"
+	uci -q set "wireless.${sid}.network=${network:-lan}"
+	uci -q set "wireless.${sid}.encryption=${encryption:-none}"
+
+	if [ "$encryption" != "none" ] && [ -n "$key" ]; then
+		uci -q set "wireless.${sid}.key=${key}"
+	fi
+	[ "$isolate" = "1" ] && uci -q set "wireless.${sid}.isolate=1"
+	uci -q set "wireless.${sid}.disabled=0"
+}
+
+sync_guest_wifi() {
+	# guest-wifi 配置文件不存在时不处理
+	uci -q get "${GUEST_CONFIG}" >/dev/null 2>&1 || return 0
+
+	cleanup_guest_ifaces
+
+	# 遍历 guest-wifi 中所有 guest-wifi 类型的段（含匿名段 @guest-wifi[N]）
+	local sections
+	sections=$(uci -q show "${GUEST_CONFIG}" | sed -n "s/^\([^.=]*\.[^.=]*\)=guest-wifi$/\1/p" | sort -u)
+	local entry section
+	for entry in $sections; do
+		section=${entry#${GUEST_CONFIG}.}
+		sync_one "$section"
+	done
+
+	uci -q commit wireless
+	wifi reload >/dev/null 2>&1
+}
+
+reload_service() {
+	sync_guest_wifi
+}
+
+restart() {
+	sync_guest_wifi
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$GUEST_CONFIG"
+	procd_add_reload_trigger "wireless"
+}
+
+start_service() {
+	sync_guest_wifi
+}

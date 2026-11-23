@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# Guest WiFi v2 初始化脚本
+# 创建独立 guest-wifi 默认配置（默认关闭，用户可在页面添加/启用），
+# 确保同步服务被启用并首次运行。
+#
+
+[ -z "${IPKG_INSTROOT}" ] || exit 0
+
+# 配置文件不存在时写入一个默认示例段（默认 disabled，不占用无线）
+if [ ! -f /etc/config/guest-wifi ]; then
+	cat > /etc/config/guest-wifi <<'EOF'
+
+config guest-wifi
+	option enabled '0'
+	option ssid 'Guest'
+	option device 'radio0'
+	option encryption 'psk2'
+	option key 'password'
+	option isolate '1'
+	option network 'lan'
+
+EOF
+fi
+
+# 确保同步服务开机自启并立即执行一次
+/etc/init.d/guest-wifi enable >/dev/null 2>&1
+/etc/init.d/guest-wifi start >/dev/null 2>&1
+
+# 清理 LuCI 缓存，使新视图生效
+rm -f /tmp/luci-indexcache /tmp/luci-modulecache/* 2>/dev/null
+exit 0
