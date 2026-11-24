@@ -29,6 +29,7 @@
 - dnsmasq-full（DNS 分流，缓存提到 8192）
 - 运维工具：ttyd 免登录、UPnP、DDNS、文件助手（含中文包）、LED 触发控制
 - **访客 WiFi 插件**（`luci-app-guest-wifi`）：旧版 Lua 应用，经 luci-compat 兼容层运行；配合已恢复的 ath11k 无线，可在「网络 → Guest WiFi」配置访客 SSID
+  - **v3 同步服务**（2026-11-24 修复）：访客段以具名 `wifinet#` 写入 wireless，不再触发 LuCI「无线配置迁移」弹窗（详见[备注](#备注)）
 - **1G 内存调优**（移植自 OpenWRT-CI，首启执行一次，写入 `/etc` 长期保留）：
   - 内核网络缓冲放大：rmem/wmem 16MiB、tcp_rmem/tcp_wmem、conntrack_max 65536
   - DNS 缓存 1500 → 8192；系统日志环缓冲 64KB → 256KB
@@ -54,7 +55,11 @@
 | `.github/workflows/build.yml` | GitHub Actions 编译工作流（含 `contents: write` 权限以自动发布 Release） |
 | `.config` | 机型锁定与软件包配置 |
 | `diy-part1.sh` | 更新 feeds 前执行：追加 helloworld、kenzok8 第三方插件源 |
-| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权（BDF 切除手术已注释） |
+| `diy-part2.sh` | 安装 feeds 后执行：改默认 IP、dnsmasq → dnsmasq-full、ttyd 免登录、调优脚本赋权、guest-wifi 四补丁注入（BDF 切除手术已注释） |
+| `patches/guest-wifi-init` | **v3 访客同步服务**：`uci add` 后立即把访客段重命名为 `wifinet#`，杜绝匿名段与 LuCI 迁移弹窗死循环 |
+| `patches/wifi.js` | 访客配置页视图（v2：主配置改 guest-wifi，去 filter） |
+| `patches/luci-app-guest-wifi-acl.json` | ACL：允许读写独立 `guest-wifi` UCI 配置 |
+| `patches/40_luci-guest-wifi` | 首启建立默认访客配置并启用同步服务 |
 | `files/etc/init.d/homeproxy-ram` | 开机把 HomeProxy 看板软链到 `/tmp` 内存盘 |
 | `files/etc/uci-defaults/97-ram-tune` | 首启内存 / 网络缓冲调优（sysctl + DNS 缓存 + 日志缓冲 + 启用看板重定向） |
 | `files/etc/uci-defaults/98-default-theme-argon` | 兜底脚本：所有主题首启脚本跑完后，强制默认主题回到 Argon |
@@ -90,6 +95,39 @@ flowchart TD
 4. 产物位于源码树 `bin/targets/qualcommax/ipq60xx/`，日常升级用 `sysupgrade.bin`。
 
 ## 备注
+
+### 访客 WiFi 同步服务 v3：修复「无线配置迁移」弹窗死循环（2026-11-24）
+
+**现象**：进入 LuCI「网络 → 无线」页面反复弹出「无线配置迁移」对话框，提示"为匿名的 wifi-iface 段分配名称"。点击「继续」或 SSH 手动改名后，弹窗依旧出现。
+
+**根因**：v2 的 `/etc/init.d/guest-wifi` 在 `sync_one()` 中用 `uci add wireless wifi-iface` 创建访客段，该命令生成**匿名段**（内部 ID 为 `cfgxxxxxx`）。LuCI 的判定条件为：
+
+```js
+uci.sections('wireless', 'wifi-iface').some(iface => iface['.anonymous'])
+```
+
+只要存在匿名 wifi-iface 段就弹窗。更棘手的是，该服务通过 `procd_add_reload_trigger "wireless"` 监听配置变更——每次点「继续」或手动改名触发 `uci commit` + `wifi reload` 后，服务立即被重新触发，`cleanup_guest_ifaces` 删除已改名段并再次 `uci add` 生成匿名段，形成**死循环**，因此常规修复手段全部无效。
+
+**修复**（`patches/guest-wifi-init` v3）：在 `uci add` 之后立即重命名为 `wifinet#`，从源头生成具名段：
+
+```sh
+sid=$(uci add wireless wifi-iface)
+[ -n "$sid" ] || return 0
+# v3: 匿名段改名为 wifinet#，避免 LuCI「无线配置迁移」弹窗反复出现
+local n=0
+while uci -q get "wireless.wifinet$n" >/dev/null 2>&1; do n=$((n+1)); done
+uci -q rename "wireless.$sid" "wifinet$n"
+sid="wifinet$n"
+```
+
+**验证**（已在 192.168.9.1 实机通过）：
+
+- `/etc/init.d/guest-wifi restart` 后段名为 `wireless.wifinet0`，无 `cfg`/`@` 匿名段
+- 连续两次 restart 幂等，不重复创建、不退化
+- `wifi status` 显示 `LibWrt`（2.4G）、`LibWrt`（5G）、`Guest` 三个 SSID 均 up
+- 访客配置完整保留：`guest_wifi=1`、`ssid=Guest`、`device=radio0`、`psk2/password`、`isolate=1`
+
+> 注：本修复已合入编译源码，**新编译固件开箱即不带此 bug**；已刷旧固件的设备需手动打补丁（参照 `patches/guest-wifi-init` 替换 `/etc/init.d/guest-wifi` 的 `sync_one()` 段）。
 
 - **无线驱动栈**（2026-11-22 恢复）：AX18 为 IPQ6018 AX1800，双频均板载 AHB，无需 PCIe/QCN9074。`.config` 已编入 `kmod-ath11k` + `kmod-ath11k-ahb` + `ath11k-firmware-ipq6018` + `ipq-wifi-cmiot_ax18`（板级 BDF）+ `wpad-openssl`；`diy-part2.sh` 中擦除 BDF 的 `find ... sed` 已注释。
   - 若改回纯有线：把上述五行改回 `=n`，并取消 `diy-part2.sh` 中该 sed 的注释。

@@ -32,6 +32,14 @@ sed -i 's|/bin/login|/bin/login -f root|g' feeds/packages/utils/ttyd/files/ttyd.
 # 自动将基础组件中的 dnsmasq 替换为 dnsmasq-full, 从源头规避包冲突
 find include/ target/ -name "Makefile" -o -name "*.mk" | xargs sed -i 's/\bdnsmasq\b/dnsmasq-full/g' 2>/dev/null
 
+# ===== [2026-11-24] guest-wifi 同步服务 v3：修复 LuCI「无线配置迁移」弹窗死循环 =====
+# v2 遗留 bug：init 服务用 `uci add wireless wifi-iface` 生成匿名段(cfgxxxxxx)，
+#   LuCI 检测到匿名 wifi-iface 就反复弹「无线配置迁移」对话框；因服务监听
+#   wireless 变更，点「继续」或手动改名后会被立刻重建为匿名段，形成死循环。
+# v3 方案：在 patches/guest-wifi-init 的 sync_one() 中，add 后立即重命名为
+#   wifinet#（跳过已占用编号），从源头生成具名段。仅改 1 个文件：guest-wifi-init。
+#   （下方 v1/v2 历史说明保留备查）
+#
 # ===== [2026-11-23] 修复 luci-app-guest-wifi 添加按钮无反应 bug (v2 独立配置版) =====
 # v1 根因：访客段存于 wireless + s.filter(guest_wifi==='1')，新建段被 filter 隐藏，
 #          且页面缺可靠 apply 入口 → 点击添加后界面无变化。

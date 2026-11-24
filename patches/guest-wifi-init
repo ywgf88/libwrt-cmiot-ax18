@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
 #
-# Guest WiFi 同步服务 (v2 - 独立配置版)
+# Guest WiFi 同步服务 (v3 - 具名段版)
 #
 # 职责：把独立 UCI 配置 /etc/config/guest-wifi 中定义的访客网络，
 #       同步为 /etc/config/wireless 里的 wifi-iface 段，然后 reload wifi。
@@ -9,6 +9,12 @@
 #   - 开机 start_service
 #   - guest-wifi 配置变更（procd_add_reload_trigger，页面「保存并应用」后自动触发）
 #   - wireless 变更
+#
+# v3 修复 (2026-11-24)：v2 用 `uci add wireless wifi-iface` 生成匿名段
+#   (内部 ID 为 cfgxxxxxx)，LuCI 检测到匿名 wifi-iface 会反复弹出
+#   「无线配置迁移」对话框；且因本服务监听 wireless 变更，点击「继续」
+#   或手动改名后会被立刻重建为匿名段，形成死循环。
+#   v3 在 add 后立即把段重命名为 wifinet#，从源头杜绝匿名段。
 #
 
 START=99
@@ -44,6 +50,12 @@ sync_one() {
 
 	sid=$(uci add wireless wifi-iface)
 	[ -n "$sid" ] || return 0
+
+	# v3: 匿名段改名为 wifinet#，避免 LuCI「无线配置迁移」弹窗反复出现
+	local n=0
+	while uci -q get "wireless.wifinet$n" >/dev/null 2>&1; do n=$((n+1)); done
+	uci -q rename "wireless.$sid" "wifinet$n"
+	sid="wifinet$n"
 
 	uci -q set "wireless.${sid}.${MARKER}=1"
 	uci -q set "wireless.${sid}.mode=ap"
